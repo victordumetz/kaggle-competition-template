@@ -42,6 +42,13 @@ clear :
 	rm -rf .python-version requirements.txt venv
 
 
+## ===== JUPYTER =====
+# start a Jupyter server
+.PHONY : jupyter
+jupyter : | $(VENV_ACTIVATE)
+	. $(VENV_ACTIVATE) && ipython kernel install --user --name=$(VENV_DIR) && env PYTHONPATH=`pwd` jupyter notebook
+
+
 # ===== DATA =====
 # download the raw data, unzip it and delete the archive
 .PHONY : load-data
