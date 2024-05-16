@@ -21,15 +21,50 @@ endif
 VENV_DIR = venv
 VENV_ACTIVATE = $(VENV_DIR)/bin/activate
 
+# data directories
+DATA_DIR = data
+RAW_DATA_DIR = $(DATA_DIR)/raw
+
+# raw data zip
+RAW_DATA_ZIP = $(RAW_DATA_DIR)/$(COMPETITION_NAME).zip
+
 
 # ===== INIT & CLEAR =====
 .PHONY : init
 init :
 	$(MAKE) install-requirements
+ifeq ($(LOAD_DATA_ON_INIT), true)
+	$(MAKE) load-data
+endif
 
 .PHONY : clear
 clear :
 	rm -rf .python-version requirements.txt venv
+
+
+# ===== DATA =====
+# download the raw data, unzip it and delete the archive
+.PHONY : load-data
+load-data : unzip-raw-data
+
+# remove data directory
+.PHONY : clear-data
+clear-data :
+	rm -rf $(DATA_DIR)
+
+# download the raw data zip using the Kaggle API
+$(RAW_DATA_ZIP) : | $(RAW_DATA_DIR) $(VENV_ACTIVATE)
+	. $(VENV_ACTIVATE) && kaggle competitions download $(COMPETITION_NAME) -p $(RAW_DATA_DIR)
+
+# unzip the raw data archive and delete it
+.PHONY : unzip-raw-data
+unzip-raw-data : | $(RAW_DATA_ZIP)
+	unzip $| -d $(RAW_DATA_DIR)
+	rm $|
+
+# create the raw data directory
+$(RAW_DATA_DIR) :
+	mkdir -p $@
 
 
 # ===== PYTHON =====

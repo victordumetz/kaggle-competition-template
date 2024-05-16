@@ -9,3 +9,6 @@ requirements.txt
 
 # virtual environment
 venv/
+
+# data directory
+data/
