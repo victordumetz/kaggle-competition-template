@@ -1,2 +1,11 @@
 # macOS
 .DS_Store
+
+# pyenv
+.python-version
+
+# compiled requirements
+requirements.txt
+
+# virtual environment
+venv/
