@@ -33,6 +33,7 @@ RAW_DATA_ZIP = $(RAW_DATA_DIR)/$(COMPETITION_NAME).zip
 .PHONY : init
 init :
 	$(MAKE) install-requirements
+	$(MAKE) install-pre-commit-hooks
 ifeq ($(LOAD_DATA_ON_INIT), true)
 	$(MAKE) load-data
 endif
@@ -40,6 +41,13 @@ endif
 .PHONY : clear
 clear :
 	rm -rf .python-version requirements.txt venv
+
+
+# ===== LINTING =====
+.PHONY : lint
+lint : | $(VENV_ACTIVATE)
+	. $(VENV_ACTIVATE) && black .
+	. $(VENV_ACTIVATE) && flake8 .
 
 
 ## ===== JUPYTER =====
@@ -97,3 +105,9 @@ $(PYTHON_VERSION_FILE) : | $(PYENV_PYTHON)
 # install Python version
 $(PYENV_PYTHON) :
 	arch -arm64 pyenv install --skip-existing $(PYTHON_VERSION)
+
+
+# ===== PRE-COMMIT =====
+.PHONY : install-pre-commit-hooks
+install-pre-commit-hooks : | $(VENV_ACTIVATE)
+	. $(VENV_ACTIVATE) && pre-commit install
