@@ -50,6 +50,11 @@ lint : | $(VENV_ACTIVATE)
 	. $(VENV_ACTIVATE) && flake8 .
 
 
+# ===== TESTING =====
+.PHONY : test
+test : | $(VENV_ACTIVATE)
+	$(PYTHON) -m unittest
+
 ## ===== JUPYTER =====
 # start a Jupyter server
 .PHONY : jupyter
