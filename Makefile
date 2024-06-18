@@ -43,17 +43,26 @@ clear :
 	rm -rf .python-version requirements.txt venv
 
 
-# ===== LINTING =====
+# ===== LINTING & FORMATTING =====
+.PHONY : lint-format
+lint-format : | $(VENV_ACTIVATE)
+	$(MAKE) lint
+	$(MAKE) format
+
 .PHONY : lint
 lint : | $(VENV_ACTIVATE)
-	. $(VENV_ACTIVATE) && black .
-	. $(VENV_ACTIVATE) && flake8 .
+	. $(VENV_ACTIVATE) && ruff check
+
+.PHONY : format
+format : | $(VENV_ACTIVATE)
+	. $(VENV_ACTIVATE) && ruff format
 
 
 # ===== TESTING =====
 .PHONY : test
 test : | $(VENV_ACTIVATE)
 	$(PYTHON) -m unittest
+
 
 ## ===== JUPYTER =====
 # start a Jupyter server

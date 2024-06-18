@@ -1,0 +1,37 @@
+line-length = 79
+
+# enable linting for Jupyter Notebooks
+extend-include = ["*.ipynb"]
+
+fix = true
+
+[format]
+# use \n for line endings (Unix standard)
+line-ending = "lf"
+
+[lint]
+select = ["ALL"]
+ignore = [
+  # allow missing typoe annotations for `self` and `cls`
+  "ANN101", "ANN102",
+  # allow missing TODO author and link
+  "TD002", "TD003",
+  # remove unresolved TODO error
+  "FIX002",
+  # flake8-pytest-style
+  "PT",
+  # for compatibility with the Ruff formatter
+  "W191", "E111", "E114", "E117", "D206", "D300", "Q000", "Q001", "Q002", "Q003", "COM812", "COM819", "ISC001", "ISC002"
+]
+
+[lint.per-file-ignores]
+"test/**" = ["ANN", "D104", "SLF"]
+
+[lint.pycodestyle]
+max-doc-length = 72
+
+[lint.pydocstyle]
+convention = "numpy"
+
+[lint.pylint]
+max-args = 10
