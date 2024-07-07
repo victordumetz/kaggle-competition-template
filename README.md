@@ -17,5 +17,5 @@ In order to use the Kaggle API, [authenticating](https://www.kaggle.com/docs/api
 3. Run `gmake init` at the root of this repository to initalise the Python environment and download the data for the competition.
 4. If you wish to install packages, add them in the requirements.in file and rerun `gmake init` to generate the compiled requirements and install them.
 5. Start a Jupyter server running `gmake jupyter`.
-6. You can run flake8 and black to lint your python files using the `gmake lint` command. Formatting and linting are also performed on commit via a pre-commit hook.
-7. You can run unit tests using the `gmake test` command. Unit testing is performed on commit via a pre-commit hook.
+6. You can run ruff to lint and format your python files using the `gmake lint-format` command. Formatting and linting are also performed on commit via a pre-commit hook.
+7. You can run unit tests using the `gmake test` command. Unit testing is also performed on commit via a pre-commit hook.
