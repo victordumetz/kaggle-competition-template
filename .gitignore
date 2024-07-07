@@ -14,4 +14,14 @@ venv/
 .ruff_cache/
 
 # data directory
-data/
+/data/*
+!/data/complementary
+
+# pickle files
+*.pkl
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+
+# Python cache
+__pycache__/
