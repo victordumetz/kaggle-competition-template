@@ -21,44 +21,84 @@ endif
 VENV_DIR = venv
 VENV_ACTIVATE = $(VENV_DIR)/bin/activate
 
-# data directories
+# directories
 DATA_DIR = data
 RAW_DATA_DIR = $(DATA_DIR)/raw
+COMPLEMENTARY_DATA_DIR = $(DATA_DIR)/complementary
+MODELS_DIR = models
+NOTEBOOKS_DIR = notebooks
+SUBMISSIONS_DIR = submissions
+TESTS_DIR = tests
+DIRECTORIES = $(DATA_DIR) \
+							$(MODELS_DIR) \
+							$(NOTEBOOKS_DIR) \
+							$(SRC_DIR) \
+							$(SUBMISSIONS_DIR) \
+							$(TESTS_DIR) \
+							$(RAW_DATA_DIR) \
+							$(COMPLEMENTARY_DATA_DIR) \
+							$(PACKAGE_DIR)
 
-# raw data zip
+# raw data zip file
 RAW_DATA_ZIP = $(RAW_DATA_DIR)/$(COMPETITION_NAME).zip
 
 
 # ===== INIT & CLEAR =====
+# initialise the project
 .PHONY : init
 init :
 	$(MAKE) install-requirements
 	$(MAKE) install-pre-commit-hooks
+	$(MAKE) create-directories
+	$(MAKE) rename-package
 ifeq ($(LOAD_DATA_ON_INIT), true)
 	$(MAKE) load-data
 endif
 
+# create directories structure for the project
+.PHONY : create-directories
+create-directories : 
+	for dir in $(DIRECTORIES); do \
+		mkdir -p $$dir; \
+	done
+
+# rename the python package to the competition name
+.PHONY : rename-package
+rename-package :
+	mv src/competition_name src/$(subst -,_,$(COMPETITION_NAME))
+
+# reset the package name to "competition_name"
+.PHONY : reset-package-name
+reset-package-name :
+	mv src/* src/competition_name
+
+# reset the project but keep user created code
 .PHONY : clear
 clear :
-	rm -rf .python-version requirements.txt venv
+	rm -rf $(PYTHON_VERSION_FILE) $(COMPILED_REQUIREMENTS_FILE) $(VENV_DIR) $(RAW_DATA_DIR) .git/hooks
+	$(MAKE) reset-package-name
 
 
 # ===== LINTING & FORMATTING =====
+# lint and format
 .PHONY : lint-format
 lint-format : | $(VENV_ACTIVATE)
 	$(MAKE) lint
 	$(MAKE) format
 
+# lint
 .PHONY : lint
 lint : | $(VENV_ACTIVATE)
 	. $(VENV_ACTIVATE) && ruff check
 
+# format
 .PHONY : format
 format : | $(VENV_ACTIVATE)
 	. $(VENV_ACTIVATE) && ruff format
 
 
 # ===== TESTING =====
+# run tests
 .PHONY : test
 test : | $(VENV_ACTIVATE)
 	$(PYTHON) -m unittest
@@ -82,7 +122,7 @@ clear-data :
 	rm -rf $(DATA_DIR)
 
 # download the raw data zip using the Kaggle API
-$(RAW_DATA_ZIP) : | $(RAW_DATA_DIR) $(VENV_ACTIVATE)
+$(RAW_DATA_ZIP) : | $(VENV_ACTIVATE)
 	. $(VENV_ACTIVATE) && kaggle competitions download $(COMPETITION_NAME) -p $(RAW_DATA_DIR)
 
 # unzip the raw data archive and delete it
@@ -90,10 +130,6 @@ $(RAW_DATA_ZIP) : | $(RAW_DATA_DIR) $(VENV_ACTIVATE)
 unzip-raw-data : | $(RAW_DATA_ZIP)
 	unzip $| -d $(RAW_DATA_DIR)
 	rm $|
-
-# create the raw data directory
-$(RAW_DATA_DIR) :
-	mkdir -p $@
 
 
 # ===== PYTHON =====
