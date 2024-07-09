@@ -25,7 +25,7 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"test/**" = ["ANN", "D104", "SLF"]
+"tests/**" = ["ANN", "D104", "SLF"]
 "*.ipynb" = ["T201"]
 
 [lint.pycodestyle]
