@@ -2,6 +2,9 @@
 # include the configuration file
 include Makefile.config
 
+# formatted competition name
+FORMATTED_COMPETITION_NAME = $(subst -,_,$(COMPETITION_NAME))
+
 # Python version file
 PYTHON_VERSION_FILE = .python-version
 
@@ -28,16 +31,12 @@ COMPLEMENTARY_DATA_DIR = $(DATA_DIR)/complementary
 MODELS_DIR = models
 NOTEBOOKS_DIR = notebooks
 SUBMISSIONS_DIR = submissions
-TESTS_DIR = tests
 DIRECTORIES = $(DATA_DIR) \
 							$(MODELS_DIR) \
 							$(NOTEBOOKS_DIR) \
-							$(SRC_DIR) \
 							$(SUBMISSIONS_DIR) \
-							$(TESTS_DIR) \
 							$(RAW_DATA_DIR) \
 							$(COMPLEMENTARY_DATA_DIR) \
-							$(PACKAGE_DIR)
 
 # raw data zip file
 RAW_DATA_ZIP = $(RAW_DATA_DIR)/$(COMPETITION_NAME).zip
@@ -65,12 +64,14 @@ create-directories :
 # rename the python package to the competition name
 .PHONY : rename-package
 rename-package :
-	mv src/competition_name src/$(subst -,_,$(COMPETITION_NAME))
+	mv src/competition_name src/$(FORMATTED_COMPETITION_NAME)
+	sed "s/src.competition_name/src.$(FORMATTED_COMPETITION_NAME)/" tests/*.py
 
 # reset the package name to "competition_name"
 .PHONY : reset-package-name
 reset-package-name :
 	mv src/* src/competition_name
+	sed -e "s/src\..\./src.competition_name./" tests/*.py
 
 # reset the project but keep user created code
 .PHONY : clear
