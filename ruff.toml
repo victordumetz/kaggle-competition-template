@@ -1,3 +1,5 @@
+target-version = "py312"
+
 line-length = 79
 
 # enable linting for Jupyter Notebooks

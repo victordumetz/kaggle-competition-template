@@ -8,6 +8,9 @@ FORMATTED_COMPETITION_NAME = $(subst -,_,$(COMPETITION_NAME))
 # Python version file
 PYTHON_VERSION_FILE = .python-version
 
+# Ruff target version
+RUFF_TARGET_VERSION = $(shell echo $(PYTHON_VERSION) | sed -r "s/^([[:digit:]]+)\.([[:digit:]]+)\..*$$/py\1\2/g")
+
 # Python interpreters
 PYENV_PYTHON = $(shell pyenv root)/versions/$(PYTHON_VERSION)/bin/python
 PYTHON = $(VENV_DIR)/bin/python
@@ -152,6 +155,11 @@ $(VENV_ACTIVATE) : $(PYTHON_VERSION_FILE)
 # set pyenv local Python version
 $(PYTHON_VERSION_FILE) : | $(PYENV_PYTHON)
 	pyenv local $(PYTHON_VERSION)
+
+# set Ruff target-version
+.PHONY : set-ruff-target-version
+set-ruff-target-version : $(PYTHON_VERSION_FILE)
+	sed -r -i "" "s/^(target-version = ).*$$/\1\"$(RUFF_TARGET_VERSION)\"/g" "ruff.toml"
 
 # install Python version
 $(PYENV_PYTHON) :
