@@ -64,14 +64,14 @@ create-directories :
 # rename the python package to the competition name
 .PHONY : rename-package
 rename-package :
-	mv src/competition_name src/$(FORMATTED_COMPETITION_NAME)
-	sed "s/src.competition_name/src.$(FORMATTED_COMPETITION_NAME)/" tests/*.py
+	mv "src/competition_name" "src/$(FORMATTED_COMPETITION_NAME)"
+	sed -i "" "s/src.competition_name/src.$(FORMATTED_COMPETITION_NAME)/g" tests/*.py
 
 # reset the package name to "competition_name"
 .PHONY : reset-package-name
 reset-package-name :
-	mv src/* src/competition_name
-	sed -e "s/src\..\./src.competition_name./" tests/*.py
+	mv src/* "src/competition_name"
+	sed -i "" -r "s/src\.[^.]+\./src.competition_name./g" tests/*.py
 
 # reset the project but keep user created code
 .PHONY : clear
