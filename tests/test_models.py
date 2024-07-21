@@ -5,6 +5,7 @@ from typing import Self
 from unittest.mock import call, patch
 
 import pandas as pd
+from sklearn.dummy import DummyClassifier, DummyRegressor
 
 from src.competition_name.models import ModelWrapper
 
@@ -14,7 +15,6 @@ X = pd.DataFrame(
         "pred_2": [1, 2, 3, 4, 5],
     }
 )
-
 y = pd.Series([1, 2, 3, 4, 5], name="target")
 
 
@@ -32,7 +32,7 @@ class BaseModel:
         Return a constant dataframe.
     """
 
-    def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Self:  # noqa: ARG002, N803
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> Self:  # noqa: ARG002, N803
         """Return self.
 
         Parameters
@@ -41,20 +41,16 @@ class BaseModel:
             The dataframe of predictors.
         y : pandas.Series
             The target feature.
-        **kwargs :
-            Necessary for compatibility with the `ModelProtocol`.
         """
         return self
 
-    def predict(self, X: pd.DataFrame, **kwargs) -> pd.Series:  # noqa: ARG002, N803
+    def predict(self, X: pd.DataFrame) -> pd.Series:  # noqa: ARG002, N803
         """Return a constant dataframe.
 
         Parameters
         ----------
         X : pandas.DataFrame
             The predictor dataframe.
-        **kwargs :
-            Necessary for compatibility with the `ModelProtocol`.
 
         Returns
         -------
@@ -97,3 +93,21 @@ class TestModelWrapperClass(unittest.TestCase):
                     call(X, y, some_kwarg=42),
                 ]
             )
+
+    def test_sklearn_compatibility(self):
+        """Test type compatibility with scikit-learn estimators."""
+        dummy_regressor = DummyRegressor()
+        regressor_model = ModelWrapper(
+            "regressor_model", "A test model.", dummy_regressor
+        )
+        with patch.object(DummyRegressor, "fit") as fit_mock:
+            regressor_model.fit(X, y)
+            fit_mock.assert_has_calls([call(X, y)])
+
+        dummy_classifier = DummyClassifier()
+        classifier_model = ModelWrapper(
+            "dummy_classifier", "A test model.", dummy_classifier
+        )
+        with patch.object(DummyClassifier, "fit") as fit_mock:
+            classifier_model.fit(X, y)
+            fit_mock.assert_has_calls([call(X, y)])

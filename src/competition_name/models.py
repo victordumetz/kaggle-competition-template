@@ -1,9 +1,12 @@
 """Define a wrapper class for managing models."""
 
 import datetime
-from typing import Protocol, Self
+from collections.abc import Callable
+from typing import Concatenate, Protocol, Self
 
 import pandas as pd
+from numpy.typing import ArrayLike
+from scipy.sparse import csc_matrix
 
 
 class EstimatorProtocol(Protocol):
@@ -11,54 +14,27 @@ class EstimatorProtocol(Protocol):
 
     Methods
     -------
-    fit(X, y, **kwargs)
-        A fit method that takes at least `X` and `y` as arguments.
-    predict(X, **kwargs)
+    fit(X, y, ...)
+        A fit method that takes at least `X` and `y` as arguments and
+        returns the class instance.
+    predict(X, ...)
         A predict method that takes at least `X` as argument and returns
-        a pandas dataframe.
+        a pandas dataframe or series, a numpy array-like, or a SciPy CSC
+        matrix.
     """
 
-    def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Self:  # noqa: ANN003, N803
-        """Define the signature of a `fit` method.
+    @property
+    def fit(  # noqa: D102
+        self,
+    ) -> Callable[Concatenate[pd.DataFrame, pd.Series, ...], Self]: ...
 
-        The `fit` method should take at least `X` and `Y` as arguments.
-        It can take some additional arguments as kwargs.
-
-        Parameters
-        ----------
-        X : pandas.DataFrame
-            The dataframe of predictors.
-        y : pandas.Series
-            The target feature.
-        **kwargs
-            Any additional arguments.
-
-        Returns
-        -------
-        EstimatorProtocol
-            Self return to allow chaining.
-        """
-        ...
-
-    def predict(self, X: pd.DataFrame, **kwargs) -> pd.Series:  # noqa: ANN003, N803
-        """Define the signature of a `predict` method.
-
-        The `predict` method should take at least `X` as an argument. It
-        can take some additional arguments as kwargs.
-
-        Parameters
-        ----------
-        X : pandas.DataFrame
-            The dataframe of predictors.
-        **kwargs
-            Any additional arguments.
-
-        Returns
-        -------
-        pandas.Series
-            Pandas series containing the predicitions.
-        """
-        ...
+    @property
+    def predict(  # noqa: D102
+        self,
+    ) -> Callable[
+        Concatenate[pd.DataFrame, ...],
+        pd.DataFrame | pd.Series | ArrayLike | csc_matrix,
+    ]: ...
 
 
 class ModelWrapper:
