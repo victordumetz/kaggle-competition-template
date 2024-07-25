@@ -70,15 +70,49 @@ class TestModelWrapperClass(unittest.TestCase):
         # fit the model and get first `model_id`
         model.fit(X, y)
         first_model_id = model.model_id
-        # check that `model_id` is a string
+        # test that `model_id` is a string
         self.assertIsInstance(first_model_id, str)
-        # check that `model_id` is constant as long as the model is not
+        # test that `model_id` is constant as long as the model is not
         # refitted
         self.assertEqual(model.model_id, first_model_id)
 
-        # refit the model and check that `model_id` has been updated
+        # refit the model and test that `model_id` has been updated
         model.fit(X, y)
         self.assertNotEqual(model.model_id, first_model_id)
+
+    def test_label_encoder(self):
+        """Test the label encoding."""
+        base_model = BaseModel()
+
+        model = ModelWrapper(
+            "classifier",
+            "A classifier, requiring label encoding of the target",
+            base_model,
+        )
+
+        # test that `LabelEncoder` is not used when
+        # `LABEL_ENCODE_TARGET == False`
+        with (
+            patch(
+                "src.competition_name.models.LABEL_ENCODE_TARGET", new=False
+            ),
+            patch(
+                "src.competition_name.models.LabelEncoder.fit_transform"
+            ) as fit_transform_mock,
+        ):
+            model.fit(X, y)
+            fit_transform_mock.assert_not_called()
+
+        # test that `LabelEncoder` is used when
+        # `LABEL_ENCODE_TARGET == True`
+        with (
+            patch("src.competition_name.models.LABEL_ENCODE_TARGET", new=True),
+            patch(
+                "src.competition_name.models.LabelEncoder.fit_transform"
+            ) as fit_transform_mock,
+        ):
+            model.fit(X, y)
+            fit_transform_mock.assert_has_calls([call(y)])
 
     def test_fit(self):
         """Test the `fit` method."""

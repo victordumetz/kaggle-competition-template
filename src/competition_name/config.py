@@ -13,3 +13,6 @@ RAW_TEST_FILE_NAMES: list[str] = ["test"]
 
 # additional arguments to pass to the loaders for the raw data
 RAW_DATA_LOADER_KWARGS: dict[str, Any] = {"index_col": 0}
+
+# whether the target variable should be label encoded or not
+LABEL_ENCODE_TARGET: bool = False

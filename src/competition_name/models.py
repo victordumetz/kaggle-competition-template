@@ -7,6 +7,9 @@ from typing import Concatenate, Protocol, Self
 import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.sparse import csc_matrix
+from sklearn.preprocessing import LabelEncoder
+
+from .config import LABEL_ENCODE_TARGET
 
 
 class EstimatorProtocol(Protocol):
@@ -76,6 +79,8 @@ class ModelWrapper:
         self.description = description
         self.estimator = estimator
 
+        self._label_encoder = LabelEncoder()
+
         self._fitted = None
         self._fit_datetime = None
 
@@ -99,6 +104,9 @@ class ModelWrapper:
         ModelWrapper
             Self return to allow chaining.
         """
+        if LABEL_ENCODE_TARGET:
+            y = pd.Series(self._label_encoder.fit_transform(y), name=y.name)
+
         self.estimator.fit(X, y, **kwargs)
 
         # set the `_fitted` and `_fit_datetime` attributes
