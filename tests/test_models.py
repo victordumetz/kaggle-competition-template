@@ -6,16 +6,19 @@ from unittest.mock import call, patch
 
 import pandas as pd
 from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.preprocessing import LabelEncoder
 
+from src.competition_name.config import METRICS
 from src.competition_name.models import ModelWrapper
 
-X = pd.DataFrame(
+X_TEST = pd.DataFrame(
     {
         "pred_1": [1, 2, 3, 4, 5],
         "pred_2": [1, 2, 3, 4, 5],
     }
 )
-y = pd.Series([1, 2, 3, 4, 5], name="target")
+Y_TEST = pd.Series([1, 2, 3, 4, 5], name="target")
+Y_TEST_LE = pd.Series(LabelEncoder().fit_transform(Y_TEST), name="target")
 
 
 class BaseModel:
@@ -32,6 +35,9 @@ class BaseModel:
         Return a constant dataframe.
     """
 
+    def __init__(self, n_jobs=1):
+        self.n_jobs = n_jobs
+
     def fit(self, X: pd.DataFrame, y: pd.Series) -> Self:  # noqa: ARG002, N803
         """Return self.
 
@@ -44,7 +50,7 @@ class BaseModel:
         """
         return self
 
-    def predict(self, X: pd.DataFrame) -> pd.Series:  # noqa: ARG002, N803
+    def predict(self, X: pd.DataFrame) -> pd.Series:  # noqa: N803
         """Return a constant dataframe.
 
         Parameters
@@ -57,7 +63,42 @@ class BaseModel:
         pandas.Series
             A constant pandas series.
         """
-        return y
+        return pd.Series([0] * X.shape[0], name="prediction")
+
+    def get_params(self, deep: bool = True) -> dict:  # noqa: ARG002, FBT001, FBT002
+        """Return the estimator's parameters.
+
+        Parameters
+        ----------
+        deep : bool
+            For compatibility with the `EstimatorProtocol`.
+
+        Returns
+        -------
+        dict
+            A dictionary with parameter names as keys and values as
+            values.
+        """
+        return {"n_jobs": self.n_jobs}
+
+    def set_params(self, **params) -> Self:
+        """Set the estimator's parameters.
+
+        Parameters
+        ----------
+        params : dict
+            A dictionary containing the parameters to set.
+
+        Returns
+        -------
+        BaseModel
+            An instance of self with the parameters set.
+        """
+        n_jobs = params.get("n_jobs", None)
+        if n_jobs is not None:
+            self.n_jobs = n_jobs
+
+        return self
 
 
 class TestModelWrapperClass(unittest.TestCase):
@@ -68,7 +109,7 @@ class TestModelWrapperClass(unittest.TestCase):
         model = ModelWrapper("test_model", "A test model.", BaseModel())
 
         # fit the model and get first `model_id`
-        model.fit(X, y)
+        model.fit(X_TEST, Y_TEST)
         first_model_id = model.model_id
         # test that `model_id` is a string
         self.assertIsInstance(first_model_id, str)
@@ -77,7 +118,7 @@ class TestModelWrapperClass(unittest.TestCase):
         self.assertEqual(model.model_id, first_model_id)
 
         # refit the model and test that `model_id` has been updated
-        model.fit(X, y)
+        model.fit(X_TEST, Y_TEST)
         self.assertNotEqual(model.model_id, first_model_id)
 
     def test_label_encoder(self):
@@ -100,7 +141,7 @@ class TestModelWrapperClass(unittest.TestCase):
                 "src.competition_name.models.LabelEncoder.fit_transform"
             ) as fit_transform_mock,
         ):
-            model.fit(X, y)
+            model.fit(X_TEST, Y_TEST)
             fit_transform_mock.assert_not_called()
 
         # test that `LabelEncoder` is used when
@@ -111,22 +152,85 @@ class TestModelWrapperClass(unittest.TestCase):
                 "src.competition_name.models.LabelEncoder.fit_transform"
             ) as fit_transform_mock,
         ):
-            model.fit(X, y)
-            fit_transform_mock.assert_has_calls([call(y)])
+            fit_transform_mock.return_value = Y_TEST_LE
 
-    def test_fit(self):
+            model.fit(X_TEST, Y_TEST)
+            fit_transform_mock.assert_has_calls([call(Y_TEST)])
+
+    def test_fit_call(self):
         """Test the `fit` method."""
         base_model = BaseModel()
+
         model = ModelWrapper("test_model", "A test model.", base_model)
         with patch.object(BaseModel, "fit") as fit_mock:
-            model.fit(X, y)
-            model.fit(X, y, some_kwarg=42)
+            model.fit(X_TEST, Y_TEST)
+            model.fit(X_TEST, Y_TEST, some_kwarg=42)
             fit_mock.assert_has_calls(
                 [
-                    call(X, y),
-                    call(X, y, some_kwarg=42),
+                    call(X_TEST, Y_TEST),
+                    call(X_TEST, Y_TEST, some_kwarg=42),
                 ]
             )
+
+    def test_fit_cross_validate(self):
+        """Test cross validation during fitting."""
+        # test that cross validation is parallelized when the estimator
+        # fitting is not
+        with (
+            patch("src.competition_name.models.N_JOBS", -1),
+            patch(
+                "src.competition_name.models.cross_validate"
+            ) as cross_validate_mock,
+        ):
+            base_model = BaseModel()
+            model = ModelWrapper("test_model", "A test model.", base_model)
+            model.fit(X_TEST, Y_TEST)
+
+            cross_validate_mock.assert_has_calls(
+                [
+                    call(
+                        base_model,
+                        X_TEST,
+                        Y_TEST,
+                        scoring=METRICS,
+                        cv=model._cross_validator,
+                        n_jobs=-1,
+                    )
+                ]
+            )
+
+        # test that cross validation is not parallelized when the
+        # estimator fitting is
+        with (
+            patch("src.competition_name.models.N_JOBS", -1),
+            patch(
+                "src.competition_name.models.cross_validate"
+            ) as cross_validate_mock,
+        ):
+            base_model_parallel = BaseModel(n_jobs=-1)
+            model_parallel = ModelWrapper(
+                "test_model", "A test model.", base_model_parallel
+            )
+            model_parallel.fit(X_TEST, Y_TEST)
+            cross_validate_mock.assert_has_calls(
+                [
+                    call(
+                        model_parallel.estimator,
+                        X_TEST,
+                        Y_TEST,
+                        scoring=METRICS,
+                        cv=model_parallel._cross_validator,
+                        n_jobs=1,
+                    )
+                ]
+            )
+
+        # test that `train_metrics` keys contain the metrics names
+        base_model = BaseModel()
+        model = ModelWrapper("test_model", "A test model.", base_model)
+        model.fit(X_TEST, Y_TEST)
+        for metric in [*METRICS, "fit_time", "score_time"]:
+            self.assertIn(metric, model.train_metrics)
 
     def test_sklearn_compatibility(self):
         """Test type compatibility with scikit-learn estimators."""
@@ -135,13 +239,13 @@ class TestModelWrapperClass(unittest.TestCase):
             "regressor_model", "A test model.", dummy_regressor
         )
         with patch.object(DummyRegressor, "fit") as fit_mock:
-            regressor_model.fit(X, y)
-            fit_mock.assert_has_calls([call(X, y)])
+            regressor_model.fit(X_TEST, Y_TEST)
+            fit_mock.assert_has_calls([call(X_TEST, Y_TEST)])
 
         dummy_classifier = DummyClassifier()
         classifier_model = ModelWrapper(
             "dummy_classifier", "A test model.", dummy_classifier
         )
         with patch.object(DummyClassifier, "fit") as fit_mock:
-            classifier_model.fit(X, y)
-            fit_mock.assert_has_calls([call(X, y)])
+            classifier_model.fit(X_TEST, Y_TEST)
+            fit_mock.assert_has_calls([call(X_TEST, Y_TEST)])

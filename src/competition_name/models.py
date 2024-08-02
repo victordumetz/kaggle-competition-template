@@ -7,9 +7,18 @@ from typing import Concatenate, Protocol, Self
 import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.sparse import csc_matrix
+from sklearn.model_selection import cross_validate
 from sklearn.preprocessing import LabelEncoder
 
-from .config import LABEL_ENCODE_TARGET
+from .config import (
+    CROSS_VALIDATOR,
+    LABEL_ENCODE_TARGET,
+    METRICS,
+    N_JOBS,
+    N_SPLITS,
+    RANDOM_STATE,
+    SHUFFLE,
+)
 
 
 class EstimatorProtocol(Protocol):
@@ -24,6 +33,13 @@ class EstimatorProtocol(Protocol):
         A predict method that takes at least `X` as argument and returns
         a pandas dataframe or series, a numpy array-like, or a SciPy CSC
         matrix.
+    get_params(deep)
+        A getter for the estimator parameters that returns a dictionary
+        with parameter names as keys and their values as values.
+    set_params(**params)
+        A setter for the estilator parameters that takes a dictionary of
+        parameters names and values as parameter and returns the
+        estimator.
     """
 
     @property
@@ -38,6 +54,12 @@ class EstimatorProtocol(Protocol):
         Concatenate[pd.DataFrame, ...],
         pd.DataFrame | pd.Series | ArrayLike | csc_matrix,
     ]: ...
+
+    @property
+    def get_params(self) -> Callable[[bool], dict]: ...  # noqa: D102
+
+    @property
+    def set_params(self) -> Callable[..., Self]: ...  # noqa: D102
 
 
 class ModelWrapper:
@@ -73,13 +95,23 @@ class ModelWrapper:
             A description of the model.
         estimator : EstimatorProtocol
             The estimator for the model.
-
         """
         self.name = name
         self.description = description
         self.estimator = estimator
 
         self._label_encoder = LabelEncoder()
+
+        self._n_jobs_cross_validator = (
+            N_JOBS if getattr(self.estimator, "n_jobs", 1) == 1 else 1
+        )
+        self._cross_validator = CROSS_VALIDATOR(
+            n_splits=N_SPLITS,
+            shuffle=SHUFFLE,
+            random_state=(
+                RANDOM_STATE if SHUFFLE else None
+            ),  # prevent error when `SHUFFLE == False`
+        )
 
         self._fitted = None
         self._fit_datetime = None
@@ -90,7 +122,7 @@ class ModelWrapper:
         return self._generate_model_id()
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Self:  # noqa: ANN003, N803
-        """Fit the model to the data.
+        """Fit the model to the data and compute fit metrics.
 
         Parameters
         ----------
@@ -108,6 +140,20 @@ class ModelWrapper:
             y = pd.Series(self._label_encoder.fit_transform(y), name=y.name)
 
         self.estimator.fit(X, y, **kwargs)
+
+        self.train_metrics = cross_validate(
+            self.estimator,
+            X,
+            y,
+            scoring=METRICS,
+            cv=self._cross_validator,
+            n_jobs=self._n_jobs_cross_validator,
+        )
+        # remove "test_" prefix from the metrics names
+        self.train_metrics = {
+            key.replace("test_", ""): value
+            for key, value in self.train_metrics.items()
+        }
 
         # set the `_fitted` and `_fit_datetime` attributes
         self._fitted = True
