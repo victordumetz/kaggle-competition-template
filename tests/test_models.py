@@ -9,7 +9,7 @@ from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.preprocessing import LabelEncoder
 
 from src.competition_name.config import METRICS
-from src.competition_name.models import ModelWrapper
+from src.competition_name.models import EstimatorNotFittedError, ModelWrapper
 
 X_TEST = pd.DataFrame(
     {
@@ -157,10 +157,9 @@ class TestModelWrapperClass(unittest.TestCase):
             model.fit(X_TEST, Y_TEST)
             fit_transform_mock.assert_has_calls([call(Y_TEST)])
 
-    def test_fit_call(self):
+    def test_fit_calls(self):
         """Test the `fit` method."""
         base_model = BaseModel()
-
         model = ModelWrapper("test_model", "A test model.", base_model)
         with patch.object(BaseModel, "fit") as fit_mock:
             model.fit(X_TEST, Y_TEST)
@@ -231,6 +230,19 @@ class TestModelWrapperClass(unittest.TestCase):
         model.fit(X_TEST, Y_TEST)
         for metric in [*METRICS, "fit_time", "score_time"]:
             self.assertIn(metric, model.train_metrics)
+
+    def test_predict(self):
+        """Test the `predict` method."""
+        base_model = BaseModel()
+        model = ModelWrapper("test_model", "A test model.", base_model)
+
+        # test that exception is raised when not fitted
+        self.assertRaises(EstimatorNotFittedError, model.predict, X_TEST)
+
+        with patch.object(BaseModel, "predict") as predict_mock:
+            model.fit(X_TEST, Y_TEST)
+            model.predict(X_TEST)
+            predict_mock.assert_has_calls([call(X_TEST)])
 
     def test_sklearn_compatibility(self):
         """Test type compatibility with scikit-learn estimators."""

@@ -4,6 +4,7 @@ import datetime
 from collections.abc import Callable
 from typing import Concatenate, Protocol, Self
 
+import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.sparse import csc_matrix
@@ -122,7 +123,7 @@ class ModelWrapper:
         return self._generate_model_id()
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Self:  # noqa: ANN003, N803
-        """Fit the model to the data and compute fit metrics.
+        """Fit the model to the data and compute train metrics.
 
         Parameters
         ----------
@@ -161,6 +162,33 @@ class ModelWrapper:
 
         return self
 
+    def predict(self, X: pd.DataFrame) -> pd.Series:  # noqa: N803
+        """Predict the target for the input data.
+
+        Parameters
+        ----------
+        X : pandas.DataFrame
+            Pandas dataframe containing the indenpendent variables.
+
+        Returns
+        -------
+        pandas.Series
+            Series containing the predictions.
+
+        Raises
+        ------
+        EstimatorNotFittedError
+            Exception raised if the estimator has not been fitted
+        """
+        if not self._fitted:
+            raise EstimatorNotFittedError
+
+        return pd.Series(
+            np.array(self.estimator.predict(X)).reshape(
+                -1
+            )  # ensure the predictions are 0-dimensional
+        )
+
     def _generate_model_id(self) -> str:
         """Generate the model ID.
 
@@ -173,3 +201,15 @@ class ModelWrapper:
             The generated model ID.
         """
         return str(hash((self.name, self._fit_datetime)))
+
+
+class EstimatorNotFittedError(Exception):
+    """Exception raised when an estimator has not yet been fitted."""
+
+    def __init__(self) -> None:
+        """Initialise the class."""
+        message = (
+            "The model has not yet been fitted. First call the model's `fit` "
+            "method."
+        )
+        super().__init__(message)
