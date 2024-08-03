@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.sparse import csc_matrix
+from sklearn.metrics import get_scorer
 from sklearn.model_selection import cross_validate
 from sklearn.preprocessing import LabelEncoder
 
@@ -103,6 +104,21 @@ class ModelWrapper:
 
         self._label_encoder = LabelEncoder()
 
+        # dictionary of shape {metric_name: (metric, response_method)}
+        self._metrics = {
+            name: (get_scorer(metric), response_method)
+            for name, (metric, response_method) in METRICS.items()
+        }
+        # dictionary of shape {metric_name: metric} used for CV
+        self._cv_metrics = {
+            name: metric for name, (metric, _) in self._metrics.items()
+        }
+
+        # set of response methods
+        self._unique_metric_response_methods = {
+            response_method for _, response_method in self._metrics.values()
+        }
+
         self._n_jobs_cross_validator = (
             N_JOBS if getattr(self.estimator, "n_jobs", 1) == 1 else 1
         )
@@ -142,15 +158,16 @@ class ModelWrapper:
 
         self.estimator.fit(X, y, **kwargs)
 
+        # compute train metrics
         self.train_metrics = cross_validate(
             self.estimator,
             X,
             y,
-            scoring=METRICS,
+            scoring=self._cv_metrics,
             cv=self._cross_validator,
             n_jobs=self._n_jobs_cross_validator,
         )
-        # remove "test_" prefix from the metrics names
+        # remove "test_" prefix from metrics' names and cast to floats
         self.train_metrics = {
             key.replace("test_", ""): value
             for key, value in self.train_metrics.items()
@@ -188,6 +205,47 @@ class ModelWrapper:
                 -1
             )  # ensure the predictions are 0-dimensional
         )
+
+    def validate(self, X_val: pd.DataFrame, y_val: pd.Series) -> None:  # noqa: N803
+        """Validate the model and compute validation metrics.
+
+        Parameters
+        ----------
+        X_val : pandas.DataFrame
+            DataFrame frame containing the independent variables of the
+            validation set.
+        y_val ; pandas.Series
+            Series containing the dependent variable of the validation
+            set.
+        """
+        if not self._fitted:
+            raise EstimatorNotFittedError
+
+        if LABEL_ENCODE_TARGET:
+            y_val = pd.Series(
+                self._label_encoder.fit_transform(y_val), name=y_val.name
+            )
+
+        # compute the predictions for each response method
+        y_pred = {}
+        for response_method in self._unique_metric_response_methods:
+            y_pred[response_method] = getattr(self.estimator, response_method)(
+                X_val
+            )
+
+        # compute the metrics
+        self.validation_metrics = {
+            name: float(
+                metric._score_func(  # noqa: SLF001
+                    y_val,
+                    y_pred[response_method],
+                    **metric._kwargs,  # noqa: SLF001
+                )
+            )
+            for name, (metric, response_method) in self._metrics.items()
+        }
+
+        self._validated = True
 
     def _generate_model_id(self) -> str:
         """Generate the model ID.

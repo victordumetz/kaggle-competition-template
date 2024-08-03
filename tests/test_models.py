@@ -6,6 +6,7 @@ from unittest.mock import call, patch
 
 import pandas as pd
 from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 
 from src.competition_name.config import METRICS
@@ -191,7 +192,7 @@ class TestModelWrapperClass(unittest.TestCase):
                         base_model,
                         X_TEST,
                         Y_TEST,
-                        scoring=METRICS,
+                        scoring=model._cv_metrics,
                         cv=model._cross_validator,
                         n_jobs=-1,
                     )
@@ -217,7 +218,7 @@ class TestModelWrapperClass(unittest.TestCase):
                         model_parallel.estimator,
                         X_TEST,
                         Y_TEST,
-                        scoring=METRICS,
+                        scoring=model_parallel._cv_metrics,
                         cv=model_parallel._cross_validator,
                         n_jobs=1,
                     )
@@ -243,6 +244,43 @@ class TestModelWrapperClass(unittest.TestCase):
             model.fit(X_TEST, Y_TEST)
             model.predict(X_TEST)
             predict_mock.assert_has_calls([call(X_TEST)])
+
+    def test_validate(self):
+        """Test the `validate` method."""
+        base_model = BaseModel()
+        model = ModelWrapper("test_model", "A test model.", base_model)
+
+        # test that exception is raised when not fitted
+        self.assertRaises(
+            EstimatorNotFittedError, model.validate, X_TEST, Y_TEST
+        )
+
+        model.fit(X_TEST, Y_TEST)
+        model.validate(X_TEST, Y_TEST)
+
+        # test that all metrics have been computed
+        self.assertEqual(model.validation_metrics.keys(), METRICS.keys())
+
+    def test_validate_predict_proba(self):
+        """Test the `validate` method on metric using probabilities."""
+        metrics = {"ROC AUC": ("roc_auc_ovo", "predict_proba")}
+        with (
+            patch("src.competition_name.models.LABEL_ENCODE_TARGET", new=True),
+            patch(
+                "src.competition_name.models.METRICS",
+                metrics,
+            ),
+        ):
+            base_model = LogisticRegression()
+            model = ModelWrapper("test_model", "A test model.", base_model)
+
+            y = pd.Series(["a", "b", "c", "a", "b"])
+
+            model.fit(X_TEST, y)
+            model.validate(X_TEST, y)
+
+            # test that all metrics have been computed
+            self.assertEqual(model.validation_metrics.keys(), metrics.keys())
 
     def test_sklearn_compatibility(self):
         """Test type compatibility with scikit-learn estimators."""

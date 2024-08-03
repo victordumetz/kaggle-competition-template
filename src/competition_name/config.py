@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from sklearn.model_selection import KFold
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
+    from sklearn.metrics._scorer import _Scorer
     from sklearn.model_selection import _BaseKFold
 
 
@@ -65,7 +64,9 @@ SHUFFLE: bool = True
 # cross validator class (will be instantiated in the `ModelWrapper`)
 CROSS_VALIDATOR: type[_BaseKFold] = KFold
 
-# metrics
-METRICS: dict[str, Callable | str] = {
-    "RMSE": "neg_root_mean_squared_error",
+# dictionary containing evaluation metrics for the model
+METRICS: dict[
+    str, tuple[str | _Scorer, Literal["predict", "predict_proba"]]
+] = {
+    "RMSE": ("neg_root_mean_squared_error", "predict"),
 }
