@@ -22,7 +22,7 @@ Y_TEST = pd.Series([1, 2, 3, 4, 5], name="target")
 Y_TEST_LE = pd.Series(LabelEncoder().fit_transform(Y_TEST), name="target")
 
 
-class BaseModel:
+class BaseEstimator:
     """A base model implementing `fit` and `predict`.
 
     Calling `fit` doesn't do anything and `predict` returns a constant
@@ -107,7 +107,7 @@ class TestModelWrapperClass(unittest.TestCase):
 
     def test_model_id(self):
         """Test the `model_id` property."""
-        model = ModelWrapper("test_model", "A test model.", BaseModel())
+        model = ModelWrapper("test_model", "A test model.", BaseEstimator())
 
         # fit the model and get first `model_id`
         model.fit(X_TEST, Y_TEST)
@@ -124,12 +124,12 @@ class TestModelWrapperClass(unittest.TestCase):
 
     def test_label_encoder(self):
         """Test the label encoding."""
-        base_model = BaseModel()
+        estimator = BaseEstimator()
 
         model = ModelWrapper(
             "classifier",
             "A classifier, requiring label encoding of the target",
-            base_model,
+            estimator,
         )
 
         # test that `LabelEncoder` is not used when
@@ -160,9 +160,9 @@ class TestModelWrapperClass(unittest.TestCase):
 
     def test_fit_calls(self):
         """Test the `fit` method."""
-        base_model = BaseModel()
-        model = ModelWrapper("test_model", "A test model.", base_model)
-        with patch.object(BaseModel, "fit") as fit_mock:
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
+        with patch.object(BaseEstimator, "fit") as fit_mock:
             model.fit(X_TEST, Y_TEST)
             model.fit(X_TEST, Y_TEST, some_kwarg=42)
             fit_mock.assert_has_calls(
@@ -182,14 +182,14 @@ class TestModelWrapperClass(unittest.TestCase):
                 "src.competition_name.models.cross_validate"
             ) as cross_validate_mock,
         ):
-            base_model = BaseModel()
-            model = ModelWrapper("test_model", "A test model.", base_model)
+            estimator = BaseEstimator()
+            model = ModelWrapper("test_model", "A test model.", estimator)
             model.fit(X_TEST, Y_TEST)
 
             cross_validate_mock.assert_has_calls(
                 [
                     call(
-                        base_model,
+                        estimator,
                         X_TEST,
                         Y_TEST,
                         scoring=model._cv_metrics,
@@ -207,9 +207,9 @@ class TestModelWrapperClass(unittest.TestCase):
                 "src.competition_name.models.cross_validate"
             ) as cross_validate_mock,
         ):
-            base_model_parallel = BaseModel(n_jobs=-1)
+            estimator_parallel = BaseEstimator(n_jobs=-1)
             model_parallel = ModelWrapper(
-                "test_model", "A test model.", base_model_parallel
+                "test_model", "A test model.", estimator_parallel
             )
             model_parallel.fit(X_TEST, Y_TEST)
             cross_validate_mock.assert_has_calls(
@@ -226,29 +226,29 @@ class TestModelWrapperClass(unittest.TestCase):
             )
 
         # test that `train_metrics` keys contain the metrics names
-        base_model = BaseModel()
-        model = ModelWrapper("test_model", "A test model.", base_model)
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
         model.fit(X_TEST, Y_TEST)
         for metric in [*METRICS, "fit_time", "score_time"]:
             self.assertIn(metric, model.train_metrics)
 
     def test_predict(self):
         """Test the `predict` method."""
-        base_model = BaseModel()
-        model = ModelWrapper("test_model", "A test model.", base_model)
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
 
         # test that exception is raised when not fitted
         self.assertRaises(EstimatorNotFittedError, model.predict, X_TEST)
 
-        with patch.object(BaseModel, "predict") as predict_mock:
+        with patch.object(BaseEstimator, "predict") as predict_mock:
             model.fit(X_TEST, Y_TEST)
             model.predict(X_TEST)
             predict_mock.assert_has_calls([call(X_TEST)])
 
     def test_validate(self):
         """Test the `validate` method."""
-        base_model = BaseModel()
-        model = ModelWrapper("test_model", "A test model.", base_model)
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
 
         # test that exception is raised when not fitted
         self.assertRaises(
@@ -271,8 +271,8 @@ class TestModelWrapperClass(unittest.TestCase):
                 metrics,
             ),
         ):
-            base_model = LogisticRegression()
-            model = ModelWrapper("test_model", "A test model.", base_model)
+            estimator = LogisticRegression()
+            model = ModelWrapper("test_model", "A test model.", estimator)
 
             y = pd.Series(["a", "b", "c", "a", "b"])
 
