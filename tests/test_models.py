@@ -1,6 +1,7 @@
 """Implements tests for the models module."""
 
 import unittest
+from pathlib import Path
 from typing import Self
 from unittest.mock import call, patch
 
@@ -299,3 +300,69 @@ class TestModelWrapperClass(unittest.TestCase):
         with patch.object(DummyClassifier, "fit") as fit_mock:
             classifier_model.fit(X_TEST, Y_TEST)
             fit_mock.assert_has_calls([call(X_TEST, Y_TEST)])
+
+    def test_save(self):
+        """Test the `save` method."""
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
+        model.fit(X_TEST, Y_TEST).validate(X_TEST, Y_TEST)
+
+        # test the case where stats file does not exist
+        with (
+            patch("src.competition_name.models.pd.read_csv") as load_mock,
+            patch(
+                "src.competition_name.models.pd.DataFrame.to_csv"
+            ) as write_mock,
+            patch("src.competition_name.models.joblib.dump") as pickle_mock,
+        ):
+            load_mock.side_effect = FileNotFoundError()
+
+            # test that warning is thrown
+            with self.assertWarns(Warning):
+                model.save(Path())
+
+            # test that stats file is loaded
+            load_mock.assert_has_calls(
+                [call(Path("models", "models_stats.csv"))]
+            )
+            # test that stats file is written
+            write_mock.assert_has_calls(
+                [call(Path("models", "models_stats.csv"), index=False)]
+            )
+            # test that the model is pickled
+            pickle_mock.assert_has_calls(
+                [
+                    call(
+                        model,
+                        Path("models", f"{model.model_id}_{model.name}.pkl"),
+                    )
+                ]
+            )
+
+        # test the case where stats file exists
+        with (
+            patch("src.competition_name.models.pd.read_csv") as load_mock,
+            patch(
+                "src.competition_name.models.pd.DataFrame.to_csv",
+                autospec=True,
+            ) as write_mock,
+            patch("src.competition_name.models.joblib.dump") as pickle_mock,
+        ):
+            load_mock.return_value = pd.DataFrame(
+                {
+                    "model_id": "123",
+                    "name": "old_model",
+                    "description": "An old model.",
+                    "fit_datetime": None,
+                    "train_fit_time": 0.1,
+                    "train_score_time": 0.1,
+                    "train_RMSE": [[1.0, 2.0, 3.0, 4.0, 5.0]],
+                    "validation_RMSE": 3.0,
+                }
+            )
+
+            model.save(Path())
+
+            # test that new row is appended
+            saved_df = write_mock.call_args_list[0][0][0]
+            self.assertEqual(2, saved_df.shape[0])

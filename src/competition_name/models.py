@@ -1,9 +1,12 @@
 """Define a wrapper class for managing models."""
 
 import datetime
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Concatenate, Protocol, Self
 
+import joblib
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
@@ -214,7 +217,7 @@ class ModelWrapper:
         X_val : pandas.DataFrame
             DataFrame frame containing the independent variables of the
             validation set.
-        y_val ; pandas.Series
+        y_val : pandas.Series
             Series containing the dependent variable of the validation
             set.
         """
@@ -247,6 +250,65 @@ class ModelWrapper:
 
         self._validated = True
 
+    def save(self, root_path: Path) -> None:
+        """Save the model.
+
+        Save the model's statistics in the models_stats.csv file and
+        create a pickle file containing the model wrapper.
+
+        Parameters
+        ----------
+        root_path : pathlib.Path
+            Path of the root directory.
+        """
+        if not self._fitted:
+            raise EstimatorNotFittedError
+        if not self._validated:
+            raise EstimatorNotValidatedError
+
+        # compute models statistics
+        model_info = {
+            "model_id": self.model_id,
+            "name": self.name,
+            "description": self.description,
+            "fit_datetime": self._fit_datetime,
+        }
+        train_stats = {
+            f"train_{metric_name}": [list(metric)]
+            if isinstance(metric, Sequence | np.ndarray)
+            and not isinstance(metric, str | dict)
+            else metric
+            for metric_name, metric in self.train_metrics.items()
+        }
+        validation_stats = {
+            f"validation_{metric_name}": [list(metric)]
+            if isinstance(metric, Sequence | np.ndarray)
+            and not isinstance(metric, str | dict)
+            else metric
+            for metric_name, metric in self.validation_metrics.items()
+        }
+        model_info.update(train_stats)
+        model_info.update(validation_stats)
+        model_stats = pd.DataFrame(model_info)
+
+        # save models statistics
+        models_path = root_path / "models"
+        models_stats_path = models_path / "models_stats.csv"
+        try:
+            models_stats = pd.read_csv(models_stats_path)
+        except FileNotFoundError:
+            warnings.warn(
+                "The models' statisctics file does not exist. It will be "
+                f"created as {models_stats_path}.",
+                stacklevel=2,
+            )
+            models_stats = pd.DataFrame({})
+        models_stats = pd.concat([models_stats, model_stats])
+        models_stats.to_csv(models_stats_path, index=False)
+
+        # save model
+        joblib.dump(self, models_path / f"{self.model_id}_{self.name}.pkl")
+
     def _generate_model_id(self) -> str:
         """Generate the model ID.
 
@@ -269,5 +331,17 @@ class EstimatorNotFittedError(Exception):
         message = (
             "The model has not yet been fitted. First call the model's `fit` "
             "method."
+        )
+        super().__init__(message)
+
+
+class EstimatorNotValidatedError(Exception):
+    """Exception raised when a model has not yet been validated."""
+
+    def __init__(self) -> None:
+        """Initialise the class."""
+        message = (
+            "The model has not yet been validated. First call the model's "
+            "`validate` method."
         )
         super().__init__(message)
