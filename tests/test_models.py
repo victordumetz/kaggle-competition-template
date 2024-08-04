@@ -1,10 +1,13 @@
 """Implements tests for the models module."""
 
+import pickle
 import unittest
+from io import BytesIO
 from pathlib import Path
 from typing import Self
 from unittest.mock import call, patch
 
+import joblib
 import pandas as pd
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.linear_model import LogisticRegression
@@ -366,3 +369,32 @@ class TestModelWrapperClass(unittest.TestCase):
             # test that new row is appended
             saved_df = write_mock.call_args_list[0][0][0]
             self.assertEqual(2, saved_df.shape[0])
+
+    def test_from_pickle(self):
+        """Test the `from_pickle` class method."""
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
+        model.fit(X_TEST, Y_TEST).validate(X_TEST, Y_TEST)
+
+        with (
+            patch("src.competition_name.models.next") as next_mock,
+            patch("src.competition_name.models.Path.glob") as glob_mock,
+        ):
+            bytes_container = BytesIO()
+            joblib.dump(model, bytes_container)
+
+            next_mock.return_value = bytes_container
+
+            loaded_model = ModelWrapper.from_pickle(Path(), "123")
+
+            # test `Path.glob` call
+            glob_mock.assert_has_calls([call("123_*.pkl")])
+
+            # test loaded and saved model equality
+            self.assertEqual(model.model_id, loaded_model.model_id)
+            self.assertEqual(model.name, loaded_model.name)
+            self.assertEqual(model.description, loaded_model.description)
+            self.assertEqual(
+                pickle.dumps(model.estimator),
+                pickle.dumps(loaded_model.estimator),
+            )  # proxy for testing the estimators equality

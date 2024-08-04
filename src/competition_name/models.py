@@ -141,6 +141,25 @@ class ModelWrapper:
         """The model ID property."""
         return self._generate_model_id()
 
+    @classmethod
+    def from_pickle(cls, root_path: Path, model_id: str) -> Self:
+        """Load a class instance from a pickle file.
+
+        Parameters
+        ----------
+        root_path : pathlib.Path
+            Path of the root directory.
+        model_id : str
+            ID of the model to load.
+
+        Returns
+        -------
+        ModelWrapper
+            The loaded model wrapper.
+        """
+        models_path = root_path / "models"
+        return joblib.load(next(iter(models_path.glob(f"{model_id}_*.pkl"))))
+
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Self:  # noqa: ANN003, N803
         """Fit the model to the data and compute train metrics.
 
