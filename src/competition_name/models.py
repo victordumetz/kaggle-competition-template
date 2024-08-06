@@ -24,6 +24,7 @@ from .config import (
     RANDOM_STATE,
     SHUFFLE,
 )
+from .data import load_raw_data
 
 
 class EstimatorProtocol(Protocol):
@@ -327,6 +328,34 @@ class ModelWrapper:
 
         # save model
         joblib.dump(self, models_path / f"{self.model_id}_{self.name}.pkl")
+
+    def generate_submission(self, root_path: Path) -> pd.DataFrame:
+        """Generate the submission file.
+
+        Parameters
+        ----------
+        root_path : pathlib.Path
+            Path of the root directory.
+
+        Returns
+        -------
+        pandas.DataFrame
+            DataFrame containing the predictions for the test set.
+        """
+        _, test = load_raw_data(root_path)
+
+        test_pred = pd.DataFrame(
+            self._label_encoder.inverse_transform(self.predict(test))
+            if LABEL_ENCODE_TARGET
+            else self.predict(test),
+            index=test.index,
+            columns=pd.Index(["Target"]),
+        )
+        test_pred.to_csv(
+            root_path / "submissions" / f"{self.model_id}_{self.name}.csv"
+        )
+
+        return test_pred
 
     def _generate_model_id(self) -> str:
         """Generate the model ID.

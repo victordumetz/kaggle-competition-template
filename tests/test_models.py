@@ -398,3 +398,29 @@ class TestModelWrapperClass(unittest.TestCase):
                 pickle.dumps(model.estimator),
                 pickle.dumps(loaded_model.estimator),
             )  # proxy for testing the estimators equality
+
+    def test_generate_submission(self):
+        """Test the `generate_submission` method."""
+        estimator = BaseEstimator()
+        model = ModelWrapper("test_model", "A test model.", estimator)
+        model.fit(X_TEST, Y_TEST)
+
+        with (
+            patch("src.competition_name.models.load_raw_data") as load_mock,
+            patch(
+                "src.competition_name.models.pd.DataFrame.to_csv"
+            ) as write_mock,
+        ):
+            load_mock.return_value = (X_TEST, X_TEST)
+            model.generate_submission(Path())
+
+            load_mock.assert_has_calls([call(Path())])
+            write_mock.assert_has_calls(
+                [
+                    call(
+                        Path(
+                            "submissions", f"{model.model_id}_{model.name}.csv"
+                        )
+                    )
+                ]
+            )
