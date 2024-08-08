@@ -19,6 +19,7 @@ venv/
 
 # pickle files
 *.pkl
+!/models/models_stats.pkl
 
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Concatenate, Protocol, Self
 
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
@@ -313,9 +314,9 @@ class ModelWrapper:
 
         # save models statistics
         models_path = root_path / "models"
-        models_stats_path = models_path / "models_stats.csv"
+        models_stats_path = models_path / "models_stats.pkl"
         try:
-            models_stats = pd.read_csv(models_stats_path)
+            models_stats = pd.read_pickle(models_stats_path, compression="zip")  # noqa: S301
         except FileNotFoundError:
             warnings.warn(
                 "The models' statisctics file does not exist. It will be "
@@ -324,7 +325,7 @@ class ModelWrapper:
             )
             models_stats = pd.DataFrame({})
         models_stats = pd.concat([models_stats, model_stats])
-        models_stats.to_csv(models_stats_path, index=False)
+        models_stats.to_pickle(models_stats_path, compression="zip")
 
         # save model
         joblib.dump(self, models_path / f"{self.model_id}_{self.name}.pkl")
@@ -369,6 +370,70 @@ class ModelWrapper:
             The generated model ID.
         """
         return str(hash((self.name, self._fit_datetime)))
+
+
+def compare_models(
+    root_path: Path,
+    metric: str,
+    *,
+    y_lim: tuple[float, float] | None = None,
+) -> None:
+    """Compare all the saved models.
+
+    Plot bar charts of the models' `metric` during training and
+    evaluation.
+
+    Parameters
+    ----------
+    root_path : Path
+        Path of the root directory.
+    metric : str
+        Name of the metric to be compared.
+    y_lim : tuple[float, float]
+        Tuple containing the y-limits for the plot. (Defaults to None).
+    """
+    # load `models_stats`
+    models_stats = pd.read_pickle(  # noqa: S301
+        root_path / "models" / "models_stats.pkl", compression="zip"
+    )
+
+    # compute mean train statistics
+    models_stats[f"mean_train_{metric}"] = models_stats[
+        f"train_{metric}"
+    ].apply(np.mean)
+    models_stats[f"std_train_{metric}"] = models_stats[
+        f"train_{metric}"
+    ].apply(np.std)
+
+    x_axis = np.arange(len(models_stats["name"]))
+
+    # plot the comparison
+    sorted_models_stats = models_stats.sort_values(f"validation_{metric}")
+    plt.figure()
+    plt.bar(
+        x=x_axis + 0.2,
+        height=sorted_models_stats[f"validation_{metric}"],
+        width=0.4,
+        label=f"Validation {metric}",
+    )
+    plt.bar(
+        x=x_axis - 0.2,
+        height=sorted_models_stats[f"mean_train_{metric}"],
+        width=0.4,
+        label=f"Mean train {metric}",
+    )
+    plt.errorbar(
+        x=x_axis - 0.2,
+        y=sorted_models_stats[f"mean_train_{metric}"],
+        yerr=sorted_models_stats[f"std_train_{metric}"],
+        fmt="none",
+    )
+    plt.xticks(x_axis, list(sorted_models_stats["name"]), rotation=90)
+    if y_lim is not None:
+        plt.ylim(*y_lim)
+    plt.title(f"Models' {metric} comparison")
+    plt.legend()
+    plt.show()
 
 
 class EstimatorNotFittedError(Exception):

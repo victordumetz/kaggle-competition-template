@@ -312,9 +312,9 @@ class TestModelWrapperClass(unittest.TestCase):
 
         # test the case where stats file does not exist
         with (
-            patch("src.competition_name.models.pd.read_csv") as load_mock,
+            patch("src.competition_name.models.pd.read_pickle") as load_mock,
             patch(
-                "src.competition_name.models.pd.DataFrame.to_csv"
+                "src.competition_name.models.pd.DataFrame.to_pickle"
             ) as write_mock,
             patch("src.competition_name.models.joblib.dump") as pickle_mock,
         ):
@@ -326,11 +326,11 @@ class TestModelWrapperClass(unittest.TestCase):
 
             # test that stats file is loaded
             load_mock.assert_has_calls(
-                [call(Path("models", "models_stats.csv"))]
+                [call(Path("models", "models_stats.pkl"), compression="zip")]
             )
             # test that stats file is written
             write_mock.assert_has_calls(
-                [call(Path("models", "models_stats.csv"), index=False)]
+                [call(Path("models", "models_stats.pkl"), compression="zip")]
             )
             # test that the model is pickled
             pickle_mock.assert_has_calls(
@@ -344,9 +344,9 @@ class TestModelWrapperClass(unittest.TestCase):
 
         # test the case where stats file exists
         with (
-            patch("src.competition_name.models.pd.read_csv") as load_mock,
+            patch("src.competition_name.models.pd.read_pickle") as load_mock,
             patch(
-                "src.competition_name.models.pd.DataFrame.to_csv",
+                "src.competition_name.models.pd.DataFrame.to_pickle",
                 autospec=True,
             ) as write_mock,
             patch("src.competition_name.models.joblib.dump") as pickle_mock,
