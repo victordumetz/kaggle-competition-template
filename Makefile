@@ -53,6 +53,7 @@ RAW_DATA_ZIP = $(RAW_DATA_DIR)/$(COMPETITION_NAME).zip
 init :
 	$(MAKE) install-requirements
 	python3 configure_makefile.py
+	$(MAKE) set-ruff-target-version
 	$(MAKE) install-pre-commit-hooks
 	$(MAKE) create-directories
 	$(MAKE) rename-package
