@@ -12,6 +12,29 @@ if TYPE_CHECKING:
 
 
 # ==========
+# PROJECT
+# ==========
+
+# development mode
+DEV: bool = True
+
+# download data on init
+# if true the data will be downloaded when running the `init` rule, else
+# the user will have to run the `load-data` rule to download the data.
+LOAD_DATA_ON_INIT: bool = True
+
+# Kaggle competition name
+# use the competition name as it appears in the Kaggle URL of the
+# competition
+COMPETITION_NAME: str = ""
+
+# Python version
+# `python_version` should include the release number (i.e. 3.x.x, not
+# 3.x)
+PYTHON_VERSION: str = "3.12.1"
+
+
+# ==========
 # RAW DATA
 # ==========
 
