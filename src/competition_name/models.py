@@ -1,6 +1,7 @@
 """Define a wrapper class for managing models."""
 
 import datetime
+import subprocess
 import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -17,6 +18,7 @@ from sklearn.model_selection import cross_validate
 from sklearn.preprocessing import LabelEncoder
 
 from .config import (
+    COMPETITION_NAME,
     CROSS_VALIDATOR,
     LABEL_ENCODE_TARGET,
     METRICS,
@@ -358,6 +360,35 @@ class ModelWrapper:
 
         return test_pred
 
+    def submit_predictions(
+        self, root_path: Path, message: str | None = None
+    ) -> None:
+        """Submit the predictions using the Kaggle API.
+
+        Parameters
+        ----------
+        root_path : pathlib.Path
+            Path of the root directory.
+        message : str | None
+            Message to be added to the submission. (Defaults to None)
+        """
+        submission_path = (
+            root_path / "submissions" / f"{self.model_id}_{self.name}.csv"
+        )
+
+        if not submission_path.is_file():
+            raise SubmissionNotGeneratedError
+
+        submit_command_args = [
+            "kaggle competitions submit",
+            f"-c {COMPETITION_NAME}",
+            f"-f {submission_path.as_posix()}",
+        ]
+        if message is not None:
+            submit_command_args.append(f'-m "{message}"')
+
+        subprocess.run(submit_command_args, check=True)  # noqa: S603
+
     def _generate_model_id(self) -> str:
         """Generate the model ID.
 
@@ -456,5 +487,17 @@ class EstimatorNotValidatedError(Exception):
         message = (
             "The model has not yet been validated. First call the model's "
             "`validate` method."
+        )
+        super().__init__(message)
+
+
+class SubmissionNotGeneratedError(Exception):
+    """Exception raised when submission file has not been generated."""
+
+    def __init__(self) -> None:
+        """Initialise the class."""
+        message = (
+            "The submission file has not yet been generated. First call"
+            "the model's `generate_submission` method."
         )
         super().__init__(message)

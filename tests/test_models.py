@@ -14,7 +14,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 
 from src.competition_name.config import METRICS
-from src.competition_name.models import EstimatorNotFittedError, ModelWrapper
+from src.competition_name.models import (
+    EstimatorNotFittedError,
+    ModelWrapper,
+    SubmissionNotGeneratedError,
+)
 
 X_TEST = pd.DataFrame(
     {
@@ -409,4 +413,70 @@ class TestModelWrapperClass(unittest.TestCase):
                         )
                     )
                 ]
+            )
+
+    def test_submit_predictions(self):
+        """Test the `submit_predictions` method with message."""
+        submission_path = Path(
+            f"submissions/{self.model.model_id}_{self.model.name}.csv"
+        )
+
+        with (
+            patch(
+                "src.competition_name.models.COMPETITION_NAME",
+                "competition_name",
+            ),
+            patch.object(Path, "is_file", return_value=True),
+            patch("src.competition_name.models.subprocess.run") as mock_run,
+        ):
+            self.model.submit_predictions(Path(), message="Test submission")
+
+            mock_run.assert_called_once_with(
+                [
+                    "kaggle competitions submit",
+                    "-c competition_name",
+                    f"-f {submission_path}",
+                    '-m "Test submission"',
+                ],
+                check=True,
+            )
+
+    def test_submit_predictions_no_message(self):
+        """Test the `submit_predictions` method whitout message."""
+        submission_path = Path(
+            f"submissions/{self.model.model_id}_{self.model.name}.csv"
+        )
+
+        with (
+            patch(
+                "src.competition_name.models.COMPETITION_NAME",
+                "competition_name",
+            ),
+            patch.object(Path, "is_file", return_value=True),
+            patch("src.competition_name.models.subprocess.run") as mock_run,
+        ):
+            self.model.submit_predictions(Path())
+
+            mock_run.assert_called_once_with(
+                [
+                    "kaggle competitions submit",
+                    "-c competition_name",
+                    f"-f {submission_path}",
+                ],
+                check=True,
+            )
+
+    def test_submit_predictions_not_generated(self):
+        """Test the `submit_predictions` method when not generated."""
+        with (
+            patch(
+                "src.competition_name.models.COMPETITION_NAME",
+                "competition_name",
+            ),
+            patch.object(Path, "is_file", return_value=False),
+        ):
+            self.assertRaises(
+                SubmissionNotGeneratedError,
+                self.model.submit_predictions,
+                Path(),
             )
